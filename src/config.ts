@@ -10,6 +10,7 @@ import { isValidTimezone } from './timezone.js';
 const envConfig = readEnvFile([
   'ASSISTANT_NAME',
   'ASSISTANT_HAS_OWN_NUMBER',
+  'DEFAULT_RUNTIME',
   'TZ',
 ]);
 
@@ -52,7 +53,7 @@ const RUNTIME_IMAGES: Record<string, string | undefined> = {
   openai: process.env.CONTAINER_IMAGE_OPENAI || 'nanoclaw-openai-agent:latest',
 };
 
-export const DEFAULT_RUNTIME = 'claude';
+export const DEFAULT_RUNTIME = envConfig.DEFAULT_RUNTIME || 'claude';
 export const TOOL_BROKER_PORT = parseInt(
   process.env.TOOL_BROKER_PORT || '3002',
   10,
