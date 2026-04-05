@@ -156,14 +156,63 @@ export class TelegramChannel implements Channel {
       const args = ctx.message?.text?.split(/\s+/).slice(1) || [];
 
       if (runtime === 'openai') {
-        // OpenAI runtime: show key status, no switching options
         const envSecrets = readEnvFile(['OPENAI_API_KEY']);
-        const hasKey = !!envSecrets.OPENAI_API_KEY;
-        const model = process.env.OPENAI_MODEL || 'gpt-4.1';
-        ctx.reply(
-          `Runtime: *OpenAI*\nModel: ${model}\nAPI key: ${hasKey ? 'configured' : 'missing'}`,
-          { parse_mode: 'Markdown' },
+        const hasApiKey = !!envSecrets.OPENAI_API_KEY;
+        const codexAuthFile = path.join(
+          process.env.HOME || '/home/node',
+          '.codex',
+          'auth.json',
         );
+        const hasSubscription = fs.existsSync(codexAuthFile);
+        const currentModel =
+          group?.containerConfig?.model || DEFAULT_MODEL;
+
+        let authMode: string;
+        if (hasSubscription && hasApiKey) {
+          authMode = 'Subscription (+ API key fallback)';
+        } else if (hasSubscription) {
+          authMode = 'Subscription';
+        } else if (hasApiKey) {
+          authMode = 'API Key';
+        } else {
+          authMode = 'not configured';
+        }
+
+        if (args.length === 0) {
+          ctx.reply(
+            `Runtime: *OpenAI (Codex)*\nModel: ${currentModel}\nAuth: ${authMode}\n\nSwitch with:\n\`/auth subscription\` — use ChatGPT subscription\n\`/auth api\` — use API key from .env`,
+            { parse_mode: 'Markdown' },
+          );
+          return;
+        }
+
+        const target = args[0].toLowerCase();
+        if (target === 'subscription') {
+          if (hasSubscription) {
+            ctx.reply('Subscription auth already configured.');
+          } else {
+            ctx.reply(
+              'Run `codex auth login` on the server, then send `/auth` again to verify.',
+              { parse_mode: 'Markdown' },
+            );
+          }
+          return;
+        }
+        if (target === 'api') {
+          if (hasApiKey) {
+            ctx.reply('API key already configured in .env');
+          } else {
+            ctx.reply(
+              'Add `OPENAI_API_KEY=sk-...` to .env on the server, then restart the service.',
+              { parse_mode: 'Markdown' },
+            );
+          }
+          return;
+        }
+
+        ctx.reply('Usage: `/auth subscription` or `/auth api`', {
+          parse_mode: 'Markdown',
+        });
         return;
       }
 

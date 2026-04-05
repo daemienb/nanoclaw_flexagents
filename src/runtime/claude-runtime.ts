@@ -47,6 +47,7 @@ export class ClaudeRuntime implements AgentRuntime {
         isScheduledTask: config.isScheduledTask,
         assistantName: config.assistantName,
         script: config.script,
+        runtime: 'claude',
       },
       onProcess: (proc, containerName) =>
         config.onProcess(proc, containerName, config.group.folder),

@@ -26,6 +26,8 @@ export interface ContainerInput {
   isScheduledTask?: boolean;
   assistantName?: string;
   script?: string;
+  runtime?: 'claude' | 'openai' | string;
+  model?: string;
 }
 
 export interface ContainerOutput {

@@ -29,6 +29,7 @@ import {
   stopContainer,
 } from './container-runtime.js';
 import { detectAuthMode } from './credential-proxy.js';
+import { readEnvFile } from './env.js';
 import { validateAdditionalMounts } from './mount-security.js';
 import { RegisteredGroup } from './types.js';
 
@@ -45,6 +46,8 @@ export interface ContainerInput {
   isScheduledTask?: boolean;
   assistantName?: string;
   script?: string;
+  runtime?: 'claude' | 'openai' | string;
+  model?: string;
 }
 
 export interface ContainerOutput {
@@ -181,8 +184,71 @@ function buildVolumeMounts(
       containerPath: '/home/node/.claude',
       readonly: false,
     });
+  } else if (runtime === 'openai') {
+    // OpenAI/Codex: mount host ~/.codex/ for subscription auth + sessions
+    const hostCodexDir = path.join(
+      process.env.HOME || '/home/node',
+      '.codex',
+    );
+    if (fs.existsSync(hostCodexDir)) {
+      // Per-group Codex state directory (sessions, memories)
+      const groupCodexDir = path.join(
+        DATA_DIR,
+        'sessions',
+        group.folder,
+        '.codex',
+      );
+      fs.mkdirSync(groupCodexDir, { recursive: true });
+
+      // Copy auth.json from host (subscription credentials)
+      const authSrc = path.join(hostCodexDir, 'auth.json');
+      const authDst = path.join(groupCodexDir, 'auth.json');
+      if (fs.existsSync(authSrc)) {
+        fs.copyFileSync(authSrc, authDst);
+      }
+
+      // Copy config.toml if it exists
+      const configSrc = path.join(hostCodexDir, 'config.toml');
+      const configDst = path.join(groupCodexDir, 'config.toml');
+      if (fs.existsSync(configSrc)) {
+        fs.copyFileSync(configSrc, configDst);
+      }
+
+      mounts.push({
+        hostPath: groupCodexDir,
+        containerPath: '/home/node/.codex',
+        readonly: false,
+      });
+    } else {
+      // No host Codex config — create minimal writable home
+      const groupHomeDir = path.join(
+        DATA_DIR,
+        'sessions',
+        group.folder,
+        'home',
+      );
+      fs.mkdirSync(groupHomeDir, { recursive: true });
+      mounts.push({
+        hostPath: groupHomeDir,
+        containerPath: '/home/node',
+        readonly: false,
+      });
+    }
+  } else {
+    // Other runtimes: writable home directory
+    const groupHomeDir = path.join(
+      DATA_DIR,
+      'sessions',
+      group.folder,
+      'home',
+    );
+    fs.mkdirSync(groupHomeDir, { recursive: true });
+    mounts.push({
+      hostPath: groupHomeDir,
+      containerPath: '/home/node',
+      readonly: false,
+    });
   }
-  // TODO: Add runtime-specific home directory setup for other runtimes here
 
   // Per-group IPC namespace: each group gets its own IPC directory
   // This prevents cross-group privilege escalation via IPC
@@ -256,9 +322,9 @@ function buildContainerArgs(
   // Pass host timezone so container's local time matches the user's
   args.push('-e', `TZ=${TIMEZONE}`);
 
-  // Claude runtime: route API traffic through credential proxy
-  // (containers never see real secrets — proxy injects them)
+  // Runtime-specific credential injection
   if (runtime === 'claude') {
+    // Claude: route API traffic through credential proxy
     args.push(
       '-e',
       `ANTHROPIC_BASE_URL=http://${CONTAINER_HOST_GATEWAY}:${CREDENTIAL_PROXY_PORT}`,
@@ -268,6 +334,25 @@ function buildContainerArgs(
       args.push('-e', 'ANTHROPIC_API_KEY=placeholder');
     } else {
       args.push('-e', 'CLAUDE_CODE_OAUTH_TOKEN=placeholder');
+    }
+  } else if (runtime === 'openai') {
+    // OpenAI/Codex: subscription auth is handled via mounted ~/.codex/auth.json.
+    // Fall back to API key from .env if no subscription auth available.
+    const hostAuthFile = path.join(
+      process.env.HOME || '/home/node',
+      '.codex',
+      'auth.json',
+    );
+    if (!fs.existsSync(hostAuthFile)) {
+      const secrets = readEnvFile(['OPENAI_API_KEY']);
+      if (secrets.OPENAI_API_KEY) {
+        args.push('-e', `OPENAI_API_KEY=${secrets.OPENAI_API_KEY}`);
+      }
+    }
+    // LiteLLM or custom base URL support
+    const envSecrets = readEnvFile(['OPENAI_BASE_URL']);
+    if (envSecrets.OPENAI_BASE_URL) {
+      args.push('-e', `OPENAI_BASE_URL=${envSecrets.OPENAI_BASE_URL}`);
     }
   }
 

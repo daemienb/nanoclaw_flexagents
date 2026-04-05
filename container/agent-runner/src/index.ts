@@ -1,7 +1,11 @@
 /**
- * NanoClaw Agent Runner — Claude SDK
+ * NanoClaw Agent Runner
  *
- * Claude-specific runner that calls @anthropic-ai/claude-agent-sdk query().
+ * Runs inside a container. Supports multiple runtimes:
+ *   - claude: calls @anthropic-ai/claude-agent-sdk query()
+ *   - openai: calls @openai/codex-sdk thread.run()
+ *
+ * Runtime is selected via ContainerInput.runtime field.
  * Shared plumbing (IO, IPC, MessageStream) lives in shared.ts.
  *
  * Input/output protocol: see shared.ts (ContainerInput/ContainerOutput).
@@ -15,6 +19,7 @@ import {
   HookCallback,
   PreCompactHookInput,
 } from '@anthropic-ai/claude-agent-sdk';
+import { Codex } from '@openai/codex-sdk';
 import { fileURLToPath } from 'url';
 
 import {
@@ -166,10 +171,6 @@ function formatTranscriptMarkdown(
 
 // --- Claude pre-compact hook ---
 
-/**
- * Archive the full transcript to conversations/ before compaction.
- * Uses Claude SDK's HookCallback interface.
- */
 function createPreCompactHook(assistantName?: string): HookCallback {
   return async (input, _toolUseId, _context) => {
     const preCompact = input as PreCompactHookInput;
@@ -220,9 +221,6 @@ function createPreCompactHook(assistantName?: string): HookCallback {
 
 // --- Claude SDK query ---
 
-/**
- * Convert a string MessageStream into SDK-format user messages.
- */
 async function* toSdkMessages(
   stream: MessageStream,
 ): AsyncGenerator<SDKUserMessage> {
@@ -236,10 +234,7 @@ async function* toSdkMessages(
   }
 }
 
-/**
- * Run a single Claude SDK query and stream results via writeOutput.
- */
-async function runQuery(
+async function runClaudeQuery(
   prompt: string,
   sessionId: string | undefined,
   mcpServerPath: string,
@@ -254,7 +249,6 @@ async function runQuery(
   const stream = new MessageStream();
   stream.push(prompt);
 
-  // Poll IPC for follow-up messages and _close sentinel during the query
   let ipcPolling = true;
   let closedDuringQuery = false;
   const pollIpcDuringQuery = () => {
@@ -280,20 +274,19 @@ async function runQuery(
   let messageCount = 0;
   let resultCount = 0;
 
-  // Load global instructions as additional system context (shared across all groups)
-  // Checks AGENT.md first (runtime-agnostic), falls back to CLAUDE.md
+  // Load global instructions (AGENT.md or CLAUDE.md)
+  const globalClaudeMdPath = '/workspace/global/CLAUDE.md';
+  const globalAgentMdPath = '/workspace/global/AGENT.md';
   let globalClaudeMd: string | undefined;
   if (!containerInput.isMain) {
-    for (const filename of ['AGENT.md', 'CLAUDE.md']) {
-      const globalPath = `/workspace/global/${filename}`;
-      if (fs.existsSync(globalPath)) {
-        globalClaudeMd = fs.readFileSync(globalPath, 'utf-8');
+    for (const p of [globalAgentMdPath, globalClaudeMdPath]) {
+      if (fs.existsSync(p)) {
+        globalClaudeMd = fs.readFileSync(p, 'utf-8');
         break;
       }
     }
   }
 
-  // Discover additional directories mounted at /workspace/extra/*
   const extraDirs: string[] = [];
   const extraBase = '/workspace/extra';
   if (fs.existsSync(extraBase)) {
@@ -417,6 +410,83 @@ async function runQuery(
   return { newSessionId, lastAssistantUuid, closedDuringQuery };
 }
 
+// --- Codex (OpenAI) query ---
+
+async function runCodexQuery(
+  prompt: string,
+  sessionId: string | undefined,
+  mcpServerPath: string,
+  containerInput: ContainerInput,
+): Promise<{
+  newSessionId?: string;
+  closedDuringQuery: boolean;
+}> {
+  const codex = new Codex({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseUrl: process.env.OPENAI_BASE_URL,
+  });
+
+  const threadOptions = {
+    model: containerInput.model || 'gpt-5.4-mini',
+    workingDirectory: '/workspace/group',
+    sandboxMode: 'workspace-write' as const,
+    approvalPolicy: 'never' as const,
+    skipGitRepoCheck: true,
+  };
+
+  const thread = sessionId
+    ? codex.resumeThread(sessionId, threadOptions)
+    : codex.startThread(threadOptions);
+
+  let closedDuringQuery = false;
+  let newSessionId: string | undefined;
+
+  // Poll for close sentinel during query
+  let ipcPolling = true;
+  const pollIpc = () => {
+    if (!ipcPolling) return;
+    if (shouldClose()) {
+      log('Close sentinel detected during Codex query');
+      closedDuringQuery = true;
+      ipcPolling = false;
+      return;
+    }
+    setTimeout(pollIpc, 500);
+  };
+  setTimeout(pollIpc, 500);
+
+  try {
+    // Use run() for buffered result (simpler for Phase 1)
+    const turn = await thread.run(prompt);
+
+    newSessionId = thread.id || undefined;
+    log(`Codex thread: ${newSessionId || 'unknown'} (${sessionId ? 'resumed' : 'new'})`);
+
+    const resultText = turn.finalResponse || null;
+    if (turn.usage) {
+      log(`Codex usage: ${turn.usage.input_tokens} in, ${turn.usage.output_tokens} out`);
+    }
+
+    writeOutput({
+      status: 'success',
+      result: resultText,
+      newSessionId,
+    });
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    log(`Codex error: ${error}`);
+    writeOutput({
+      status: 'error',
+      result: null,
+      newSessionId: newSessionId || thread.id || undefined,
+      error,
+    });
+  }
+
+  ipcPolling = false;
+  return { newSessionId, closedDuringQuery };
+}
+
 // --- Main ---
 
 async function main(): Promise<void> {
@@ -430,7 +500,7 @@ async function main(): Promise<void> {
     } catch {
       /* may not exist */
     }
-    log(`Received input for group: ${containerInput.groupFolder}`);
+    log(`Received input for group: ${containerInput.groupFolder} (runtime: ${containerInput.runtime || 'claude'})`);
   } catch (err) {
     writeOutput({
       status: 'error',
@@ -440,13 +510,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Credentials are injected by the host's credential proxy via ANTHROPIC_BASE_URL.
-  // No real secrets exist in the container environment.
-  const sdkEnv: Record<string, string | undefined> = {
-    ...process.env,
-    CLAUDE_CODE_AUTO_COMPACT_WINDOW: '165000',
-  };
-
+  const runtime = containerInput.runtime || 'claude';
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const mcpServerPath = path.join(__dirname, 'ipc-mcp-stdio.js');
 
@@ -488,7 +552,6 @@ async function main(): Promise<void> {
       return;
     }
 
-    // Script says wake agent — enrich prompt with script data
     log(`Script wakeAgent=true, enriching prompt with data`);
     prompt = `[SCHEDULED TASK]\n\nScript output:\n${JSON.stringify(scriptResult.data, null, 2)}\n\nInstructions:\n${containerInput.prompt}`;
   }
@@ -497,18 +560,32 @@ async function main(): Promise<void> {
   let resumeAt: string | undefined;
   try {
     while (true) {
-      log(
-        `Starting query (session: ${sessionId || 'new'}, resumeAt: ${resumeAt || 'latest'})...`,
-      );
+      log(`Starting ${runtime} query (session: ${sessionId || 'new'})...`);
 
-      const queryResult = await runQuery(
-        prompt,
-        sessionId,
-        mcpServerPath,
-        containerInput,
-        sdkEnv,
-        resumeAt,
-      );
+      let queryResult: {
+        newSessionId?: string;
+        lastAssistantUuid?: string;
+        closedDuringQuery: boolean;
+      };
+
+      if (runtime === 'openai') {
+        queryResult = await runCodexQuery(prompt, sessionId, mcpServerPath, containerInput);
+      } else {
+        // Claude SDK environment
+        const sdkEnv: Record<string, string | undefined> = {
+          ...process.env,
+          CLAUDE_CODE_AUTO_COMPACT_WINDOW: '165000',
+        };
+        queryResult = await runClaudeQuery(
+          prompt,
+          sessionId,
+          mcpServerPath,
+          containerInput,
+          sdkEnv,
+          resumeAt,
+        );
+      }
+
       if (queryResult.newSessionId) {
         sessionId = queryResult.newSessionId;
       }
@@ -516,7 +593,6 @@ async function main(): Promise<void> {
         resumeAt = queryResult.lastAssistantUuid;
       }
 
-      // If _close was consumed during the query, exit immediately.
       if (queryResult.closedDuringQuery) {
         log('Close sentinel consumed during query, exiting');
         break;
@@ -527,7 +603,6 @@ async function main(): Promise<void> {
 
       log('Query ended, waiting for next IPC message...');
 
-      // Wait for the next message or _close sentinel
       const nextMessage = await waitForIpcMessage();
       if (nextMessage === null) {
         log('Close sentinel received, exiting');

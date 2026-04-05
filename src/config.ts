@@ -46,15 +46,15 @@ export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');
 export const CONTAINER_IMAGE =
   process.env.CONTAINER_IMAGE || 'nanoclaw-agent:latest';
 
-// Per-runtime container images. Defaults fall back to CONTAINER_IMAGE for claude.
-// TODO: Add entries here as new runtime adapters are built (e.g. openai, google-adk).
+// Per-runtime container images. Both runtimes share the same image by default
+// (agent-runner detects runtime from ContainerInput and uses the right SDK).
 const RUNTIME_IMAGES: Record<string, string | undefined> = {
   claude: process.env.CONTAINER_IMAGE_CLAUDE || undefined, // falls back to CONTAINER_IMAGE
-  openai: process.env.CONTAINER_IMAGE_OPENAI || 'nanoclaw-openai-agent:latest',
+  openai: process.env.CONTAINER_IMAGE_OPENAI || undefined, // falls back to CONTAINER_IMAGE
 };
 
 export const DEFAULT_RUNTIME = envConfig.DEFAULT_RUNTIME || 'claude';
-export const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1';
+export const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-5.4-mini';
 export const TOOL_BROKER_PORT = parseInt(
   process.env.TOOL_BROKER_PORT || '3002',
   10,
@@ -66,12 +66,10 @@ export const AVAILABLE_MODELS: Record<
   Array<{ id: string; name: string }>
 > = {
   openai: [
-    { id: 'gpt-4.1', name: 'GPT-4.1' },
-    { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini' },
-    { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano' },
-    { id: 'gpt-4o', name: 'GPT-4o' },
-    { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-    { id: 'o3-mini', name: 'o3 Mini' },
+    { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini — fast, light quota' },
+    { id: 'gpt-5.2', name: 'GPT-5.2 — general purpose' },
+    { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex — tool/code focused' },
+    { id: 'gpt-5.4', name: 'GPT-5.4 — max capability' },
   ],
   claude: [
     { id: 'claude-opus-4-6', name: 'Claude Opus 4.6' },

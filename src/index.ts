@@ -4,6 +4,7 @@ import path from 'path';
 import {
   ASSISTANT_NAME,
   CREDENTIAL_PROXY_PORT,
+  DEFAULT_RUNTIME,
   DEFAULT_TRIGGER,
   getTriggerPattern,
   GROUPS_DIR,
@@ -323,7 +324,7 @@ const containerManager = new DefaultContainerManager();
 const toolExecutor = new DefaultToolExecutor(containerManager);
 
 function createRuntime(group: RegisteredGroup): AgentRuntime {
-  const runtime = group.containerConfig?.runtime || 'claude';
+  const runtime = group.containerConfig?.runtime || DEFAULT_RUNTIME;
   switch (runtime) {
     case 'openai':
       return new OpenAIRuntime();
