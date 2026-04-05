@@ -19,3 +19,4 @@ export {
   writeGroupsSnapshot,
 } from './container-manager.js';
 export { ClaudeRuntime } from './claude-runtime.js';
+export { DefaultToolExecutor } from './tool-executor.js';

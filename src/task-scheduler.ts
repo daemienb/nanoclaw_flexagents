@@ -3,11 +3,8 @@ import { CronExpressionParser } from 'cron-parser';
 import fs from 'fs';
 
 import { ASSISTANT_NAME, SCHEDULER_POLL_INTERVAL, TIMEZONE } from './config.js';
-import {
-  ContainerOutput,
-  runContainerAgent,
-  writeTasksSnapshot,
-} from './container-runner.js';
+import type { AgentRuntime, ContainerManager, ContainerOutput, ToolExecutor } from './runtime/types.js';
+import { writeTasksSnapshot } from './runtime/index.js';
 import {
   getAllTasks,
   getDueTasks,
@@ -65,6 +62,7 @@ export function computeNextRun(task: ScheduledTask): string | null {
 export interface SchedulerDependencies {
   registeredGroups: () => Record<string, RegisteredGroup>;
   getSessions: () => Record<string, string>;
+  setSessions: (groupFolder: string, sessionId: string) => void;
   queue: GroupQueue;
   onProcess: (
     groupJid: string,
@@ -73,6 +71,9 @@ export interface SchedulerDependencies {
     groupFolder: string,
   ) => void;
   sendMessage: (jid: string, text: string) => Promise<void>;
+  createRuntime: (group: RegisteredGroup) => AgentRuntime;
+  containerManager: ContainerManager;
+  toolExecutor: ToolExecutor;
 }
 
 async function runTask(
@@ -170,45 +171,46 @@ async function runTask(
   };
 
   try {
-    const output = await runContainerAgent(
+    const runtime = deps.createRuntime(group);
+
+    for await (const event of runtime.run(task.prompt, {
       group,
-      {
-        prompt: task.prompt,
-        sessionId,
-        groupFolder: task.group_folder,
-        chatJid: task.chat_jid,
-        isMain,
-        isScheduledTask: true,
-        assistantName: ASSISTANT_NAME,
-        script: task.script || undefined,
-      },
-      (proc, containerName) =>
-        deps.onProcess(task.chat_jid, proc, containerName, task.group_folder),
-      async (streamedOutput: ContainerOutput) => {
+      chatJid: task.chat_jid,
+      isMain,
+      assistantName: ASSISTANT_NAME,
+      sessionId,
+      isScheduledTask: true,
+      script: task.script || undefined,
+      toolExecutor: deps.toolExecutor,
+      containerManager: deps.containerManager,
+      onProcess: (proc, containerName, groupFolder) =>
+        deps.onProcess(task.chat_jid, proc, containerName, groupFolder),
+      _onStreamedOutput: async (streamedOutput: ContainerOutput) => {
         if (streamedOutput.result) {
           result = streamedOutput.result;
-          // Forward result to user (sendMessage handles formatting)
           await deps.sendMessage(task.chat_jid, streamedOutput.result);
           scheduleClose();
         }
         if (streamedOutput.status === 'success') {
           deps.queue.notifyIdle(task.chat_jid);
-          scheduleClose(); // Close promptly even when result is null (e.g. IPC-only tasks)
+          scheduleClose();
         }
         if (streamedOutput.status === 'error') {
           error = streamedOutput.error || 'Unknown error';
         }
       },
-    );
+    })) {
+      if (event.sessionId) {
+        deps.setSessions(task.group_folder, event.sessionId);
+      }
+      if (event.type === 'error') {
+        error = event.error || 'Unknown error';
+      } else if (event.type === 'result' && event.result) {
+        result = event.result;
+      }
+    }
 
     if (closeTimer) clearTimeout(closeTimer);
-
-    if (output.status === 'error') {
-      error = output.error || 'Unknown error';
-    } else if (output.result) {
-      // Result was already forwarded to the user via the streaming callback above
-      result = output.result;
-    }
 
     logger.info(
       { taskId: task.id, durationMs: Date.now() - startTime },

@@ -22,6 +22,7 @@ import {
   ClaudeRuntime,
   ContainerOutput,
   DefaultContainerManager,
+  DefaultToolExecutor,
   writeGroupsSnapshot,
   writeTasksSnapshot,
 } from './runtime/index.js';
@@ -313,8 +314,9 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   return true;
 }
 
-// Singleton container manager — shared across all runtimes
+// Singletons — shared across all runtimes
 const containerManager = new DefaultContainerManager();
+const toolExecutor = new DefaultToolExecutor(containerManager);
 
 function createRuntime(group: RegisteredGroup): ClaudeRuntime {
   // TODO: Select runtime based on group.containerConfig?.runtime
@@ -379,7 +381,7 @@ async function runAgent(
       isMain,
       assistantName: ASSISTANT_NAME,
       sessionId,
-      toolExecutor: null as never, // TODO: Phase 2 — create ToolExecutor
+      toolExecutor,
       containerManager,
       onProcess: (proc, containerName, groupFolder) =>
         queue.registerProcess(chatJid, proc, containerName, groupFolder),
@@ -692,6 +694,10 @@ async function main(): Promise<void> {
   startSchedulerLoop({
     registeredGroups: () => registeredGroups,
     getSessions: () => sessions,
+    setSessions: (groupFolder, sessionId) => {
+      sessions[groupFolder] = sessionId;
+      setSession(groupFolder, sessionId);
+    },
     queue,
     onProcess: (groupJid, proc, containerName, groupFolder) =>
       queue.registerProcess(groupJid, proc, containerName, groupFolder),
@@ -704,6 +710,9 @@ async function main(): Promise<void> {
       const text = formatOutbound(rawText);
       if (text) await channel.sendMessage(jid, text);
     },
+    createRuntime: createRuntime,
+    containerManager,
+    toolExecutor,
   });
   startIpcWatcher({
     sendMessage: (jid, text) => {
