@@ -186,10 +186,7 @@ function buildVolumeMounts(
     });
   } else if (runtime === 'openai') {
     // OpenAI/Codex: mount host ~/.codex/ for subscription auth + sessions
-    const hostCodexDir = path.join(
-      process.env.HOME || '/home/node',
-      '.codex',
-    );
+    const hostCodexDir = path.join(process.env.HOME || '/home/node', '.codex');
     if (fs.existsSync(hostCodexDir)) {
       // Per-group Codex state directory (sessions, memories)
       const groupCodexDir = path.join(
@@ -236,12 +233,7 @@ function buildVolumeMounts(
     }
   } else {
     // Other runtimes: writable home directory
-    const groupHomeDir = path.join(
-      DATA_DIR,
-      'sessions',
-      group.folder,
-      'home',
-    );
+    const groupHomeDir = path.join(DATA_DIR, 'sessions', group.folder, 'home');
     fs.mkdirSync(groupHomeDir, { recursive: true });
     mounts.push({
       hostPath: groupHomeDir,

@@ -164,8 +164,7 @@ export class TelegramChannel implements Channel {
           'auth.json',
         );
         const hasSubscription = fs.existsSync(codexAuthFile);
-        const currentModel =
-          group?.containerConfig?.model || DEFAULT_MODEL;
+        const currentModel = group?.containerConfig?.model || DEFAULT_MODEL;
 
         let authMode: string;
         if (hasSubscription && hasApiKey) {

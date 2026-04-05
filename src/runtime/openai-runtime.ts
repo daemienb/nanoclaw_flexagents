@@ -36,8 +36,7 @@ export class OpenAIRuntime implements AgentRuntime {
     this.containerManager = config.containerManager;
     this.groupFolder = config.group.folder;
 
-    const model =
-      config.group.containerConfig?.model || DEFAULT_MODEL;
+    const model = config.group.containerConfig?.model || DEFAULT_MODEL;
 
     const output = await config.containerManager.runAgentSession({
       group: config.group,
