@@ -1,23 +1,9 @@
-export type {
-  AgentEvent,
-  AgentRuntime,
-  AgentRuntimeConfig,
-  ContainerInput,
-  ContainerManager,
-  ContainerOutput,
-  ContainerSession,
-  RuntimeId,
-  ToolCall,
-  ToolContext,
-  ToolDefinition,
-  ToolExecutor,
-  ToolResult,
-} from './types.js';
-export { DefaultContainerManager } from './container-manager.js';
-export {
-  writeTasksSnapshot,
-  writeGroupsSnapshot,
-} from './container-manager.js';
-export { ClaudeRuntime } from './claude-runtime.js';
-export { OpenAIRuntime } from './openai-runtime.js';
-export { DefaultToolExecutor } from './tool-executor.js';
+// Agent SDK self-registration barrel.
+// Each import triggers the SDK module's registerAgentSdk() call.
+// Skill branches append/uncomment import lines here.
+
+// claude
+import './claude-runtime.js';
+
+// codex (openai)
+import './openai-runtime.js';

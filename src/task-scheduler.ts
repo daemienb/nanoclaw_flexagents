@@ -9,7 +9,7 @@ import type {
   ContainerOutput,
   ToolExecutor,
 } from './runtime/types.js';
-import { writeTasksSnapshot } from './runtime/index.js';
+import { writeTasksSnapshot } from './runtime/container-manager.js';
 import {
   getAllTasks,
   getDueTasks,

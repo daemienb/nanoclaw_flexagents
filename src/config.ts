@@ -51,7 +51,7 @@ export const CONTAINER_IMAGE =
 // (agent-runner detects runtime from ContainerInput and uses the right SDK).
 const RUNTIME_IMAGES: Record<string, string | undefined> = {
   claude: process.env.CONTAINER_IMAGE_CLAUDE || undefined, // falls back to CONTAINER_IMAGE
-  openai: process.env.CONTAINER_IMAGE_OPENAI || undefined, // falls back to CONTAINER_IMAGE
+  codex: process.env.CONTAINER_IMAGE_CODEX || undefined, // falls back to CONTAINER_IMAGE
 };
 
 export const DEFAULT_RUNTIME = envConfig.DEFAULT_RUNTIME || 'claude';

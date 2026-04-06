@@ -19,16 +19,16 @@ import {
   getChannelFactory,
   getRegisteredChannelNames,
 } from './channels/registry.js';
+// Trigger agent SDK self-registration (barrel import)
+import './runtime/index.js';
 import {
-  ClaudeRuntime,
-  ContainerOutput,
-  DefaultContainerManager,
-  DefaultToolExecutor,
-  OpenAIRuntime,
-  writeGroupsSnapshot,
-  writeTasksSnapshot,
-} from './runtime/index.js';
-import type { AgentRuntime } from './runtime/types.js';
+  getAgentSdkFactory,
+  getRegisteredAgentSdkNames,
+} from './runtime/registry.js';
+import { DefaultContainerManager } from './runtime/container-manager.js';
+import { DefaultToolExecutor } from './runtime/tool-executor.js';
+import { writeTasksSnapshot, writeGroupsSnapshot } from './runtime/container-manager.js';
+import type { AgentRuntime, ContainerOutput } from './runtime/types.js';
 import {
   cleanupOrphans,
   ensureContainerRuntimeRunning,
@@ -322,14 +322,15 @@ const containerManager = new DefaultContainerManager();
 const toolExecutor = new DefaultToolExecutor(containerManager);
 
 function createRuntime(group: RegisteredGroup): AgentRuntime {
-  const runtime = group.containerConfig?.runtime || DEFAULT_RUNTIME;
-  switch (runtime) {
-    case 'openai':
-      return new OpenAIRuntime();
-    case 'claude':
-    default:
-      return new ClaudeRuntime();
+  const sdk = group.containerConfig?.runtime || DEFAULT_RUNTIME;
+  const factory = getAgentSdkFactory(sdk);
+  if (!factory) {
+    const installed = getRegisteredAgentSdkNames().join(', ');
+    throw new Error(
+      `Agent SDK '${sdk}' not installed. Available: ${installed || 'none'}. Run /add-agentSDK-${sdk}`,
+    );
   }
+  return factory();
 }
 
 async function runAgent(

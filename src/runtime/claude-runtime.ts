@@ -18,6 +18,7 @@ import type {
   ContainerOutput,
   RuntimeId,
 } from './types.js';
+import { registerAgentSdk } from './registry.js';
 
 /** Claude-specific stale session error patterns */
 const STALE_SESSION_PATTERN =
@@ -107,3 +108,6 @@ export class ClaudeRuntime implements AgentRuntime {
     return STALE_SESSION_PATTERN.test(error);
   }
 }
+
+// Self-register
+registerAgentSdk('claude', () => new ClaudeRuntime());

@@ -157,7 +157,7 @@ export class TelegramChannel implements Channel {
       const runtime = group?.containerConfig?.runtime || DEFAULT_RUNTIME;
       const args = ctx.message?.text?.split(/\s+/).slice(1) || [];
 
-      if (runtime === 'openai') {
+      if (runtime === 'codex') {
         const envSecrets = readEnvFile(['OPENAI_API_KEY']);
         const hasApiKey = !!envSecrets.OPENAI_API_KEY;
         const codexAuthFile = path.join(

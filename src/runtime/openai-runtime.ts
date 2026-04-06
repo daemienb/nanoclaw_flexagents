@@ -18,9 +18,10 @@ import type {
   ContainerOutput,
   RuntimeId,
 } from './types.js';
+import { registerAgentSdk } from './registry.js';
 
 export class OpenAIRuntime implements AgentRuntime {
-  readonly id: RuntimeId = 'openai';
+  readonly id: RuntimeId = 'codex';
 
   private containerManager: ContainerManager | null = null;
   private groupFolder: string | null = null;
@@ -45,7 +46,7 @@ export class OpenAIRuntime implements AgentRuntime {
         isScheduledTask: config.isScheduledTask,
         assistantName: config.assistantName,
         script: config.script,
-        runtime: 'openai',
+        runtime: 'codex',
         model,
         baseUrl: config.group.containerConfig?.baseUrl,
       },
@@ -99,3 +100,6 @@ export class OpenAIRuntime implements AgentRuntime {
     return /no rollout found|thread.*not found|resume.*failed/i.test(error);
   }
 }
+
+// Self-register
+registerAgentSdk('codex', () => new OpenAIRuntime());

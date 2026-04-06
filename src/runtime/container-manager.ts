@@ -40,7 +40,9 @@ export class DefaultContainerManager implements IContainerManager {
 
   async executeInContainer(_call: ToolCall): Promise<ToolResult> {
     // Not used — both SDKs have their own built-in tools inside the container.
-    throw new Error('executeInContainer() not needed — SDKs have built-in tools');
+    throw new Error(
+      'executeInContainer() not needed — SDKs have built-in tools',
+    );
   }
 
   async runAgentSession(opts: {

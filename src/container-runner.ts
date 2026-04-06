@@ -46,7 +46,7 @@ export interface ContainerInput {
   isScheduledTask?: boolean;
   assistantName?: string;
   script?: string;
-  runtime?: 'claude' | 'openai' | string;
+  runtime?: 'claude' | 'codex' | string;
   model?: string;
   baseUrl?: string;
 }
@@ -184,7 +184,7 @@ function buildVolumeMounts(
       containerPath: '/home/node/.claude',
       readonly: false,
     });
-  } else if (runtime === 'openai') {
+  } else if (runtime === 'codex') {
     // OpenAI/Codex: mount host ~/.codex/ for subscription auth + sessions
     const hostCodexDir = path.join(process.env.HOME || '/home/node', '.codex');
     if (fs.existsSync(hostCodexDir)) {
@@ -340,7 +340,7 @@ function buildContainerArgs(
     } else {
       args.push('-e', 'CLAUDE_CODE_OAUTH_TOKEN=placeholder');
     }
-  } else if (runtime === 'openai') {
+  } else if (runtime === 'codex') {
     // OpenAI/Codex: subscription auth is handled via mounted ~/.codex/auth.json.
     // Fall back to API key from .env if no subscription auth available.
     const hostAuthFile = path.join(

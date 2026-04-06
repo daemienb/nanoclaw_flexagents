@@ -11,7 +11,7 @@ import { RegisteredGroup } from '../types.js';
 
 // --- Identity ---
 
-export type RuntimeId = 'claude' | 'openai' | (string & {});
+export type RuntimeId = 'claude' | 'codex' | (string & {});
 
 // --- Container protocol ---
 // These match the existing ContainerInput/ContainerOutput from container-runner.ts.
@@ -26,7 +26,7 @@ export interface ContainerInput {
   isScheduledTask?: boolean;
   assistantName?: string;
   script?: string;
-  runtime?: 'claude' | 'openai' | string;
+  runtime?: 'claude' | 'codex' | string;
   model?: string;
   baseUrl?: string;
 }
