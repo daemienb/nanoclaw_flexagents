@@ -78,15 +78,23 @@ export const AVAILABLE_MODELS: Record<
     { id: 'claude-sonnet-4-5-20250514', name: 'Claude Sonnet 4.5' },
     { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
   ],
-  // Custom models via LiteLLM. These require LITELLM_URL in .env
-  // and LiteLLM running with the corresponding model configured.
+  // Local models via OMLX (direct, no LiteLLM needed).
+  // Requires OMLX running: brew services start omlx
+  local: [
+    { id: 'mlx-community/Llama-3.1-8B-Instruct', name: 'Llama 3.1 8B (local)' },
+    { id: 'mlx-community/Qwen2.5-7B-Instruct', name: 'Qwen 2.5 7B (local)' },
+    { id: 'mlx-community/DeepSeek-R1-0528-Qwen3-8B', name: 'DeepSeek R1 8B (local)' },
+  ],
+  // Custom models via LiteLLM. Requires LITELLM_URL in .env.
   custom: [
-    { id: 'ollama/llama3.1', name: 'Llama 3.1 (local via Ollama)' },
-    { id: 'ollama/codellama', name: 'Code Llama (local via Ollama)' },
-    { id: 'huggingface/meta-llama/Llama-3.1-70B-Instruct', name: 'Llama 3.1 70B (HuggingFace)' },
+    {
+      id: 'huggingface/meta-llama/Llama-3.1-70B-Instruct',
+      name: 'Llama 3.1 70B (HuggingFace)',
+    },
   ],
 };
 
+export const OMLX_URL = process.env.OMLX_URL || 'http://localhost:8000/v1';
 export const LITELLM_URL = envConfig.LITELLM_URL || '';
 
 /** Resolve the container image for a given runtime. */

@@ -16,6 +16,7 @@ import {
   DEFAULT_MODEL,
   DEFAULT_RUNTIME,
   LITELLM_URL,
+  OMLX_URL,
   TRIGGER_PATTERN,
 } from '../config.js';
 import { getRegisteredGroup, setRegisteredGroup } from '../db.js';
@@ -308,9 +309,11 @@ export class TelegramChannel implements Channel {
       const args = ctx.message?.text?.split(/\s+/).slice(1) || [];
 
       if (args.length === 0) {
-        // Show current model + available options for this runtime
         const runtimeModels = AVAILABLE_MODELS[runtime] || [];
-        const customModels = LITELLM_URL ? (AVAILABLE_MODELS['custom'] || []) : [];
+        const localModels = AVAILABLE_MODELS['local'] || [];
+        const customModels = LITELLM_URL
+          ? AVAILABLE_MODELS['custom'] || []
+          : [];
         const baseUrl = group.containerConfig?.baseUrl;
 
         let reply = `Model: *${currentModel}*\nRuntime: ${runtime}`;
@@ -322,21 +325,23 @@ export class TelegramChannel implements Channel {
           reply +=
             '\n\n*' + runtime + ' models:*\n' +
             runtimeModels
-              .map(
-                (m) =>
-                  `${m.id === currentModel ? '→' : '  '} \`${m.id}\` — ${m.name}`,
-              )
+              .map((m) => `${m.id === currentModel ? '→' : '  '} \`${m.id}\` — ${m.name}`)
+              .join('\n');
+        }
+
+        if (localModels.length > 0) {
+          reply +=
+            '\n\n*Local models (OMLX):*\n' +
+            localModels
+              .map((m) => `${m.id === currentModel ? '→' : '  '} \`${m.id}\` — ${m.name}`)
               .join('\n');
         }
 
         if (customModels.length > 0) {
           reply +=
-            '\n\n*Custom models (via LiteLLM):*\n' +
+            '\n\n*Custom models (LiteLLM):*\n' +
             customModels
-              .map(
-                (m) =>
-                  `${m.id === currentModel ? '→' : '  '} \`${m.id}\` — ${m.name}`,
-              )
+              .map((m) => `${m.id === currentModel ? '→' : '  '} \`${m.id}\` — ${m.name}`)
               .join('\n');
         }
 
@@ -351,7 +356,10 @@ export class TelegramChannel implements Channel {
         return;
       }
 
-      // Check if this is a custom model (needs LiteLLM)
+      // Determine routing: local (OMLX direct), custom (LiteLLM), or standard (no proxy)
+      const isLocalModel = (AVAILABLE_MODELS['local'] || []).some(
+        (m) => m.id === target,
+      );
       const isCustomModel = (AVAILABLE_MODELS['custom'] || []).some(
         (m) => m.id === target,
       );
@@ -359,7 +367,9 @@ export class TelegramChannel implements Channel {
       const config = group.containerConfig || {};
       config.model = target;
 
-      if (isCustomModel) {
+      if (isLocalModel) {
+        config.baseUrl = OMLX_URL;
+      } else if (isCustomModel) {
         if (!LITELLM_URL) {
           ctx.reply(
             'Custom models require LiteLLM. Set `LITELLM_URL` in .env and start LiteLLM.',
@@ -369,7 +379,6 @@ export class TelegramChannel implements Channel {
         }
         config.baseUrl = LITELLM_URL;
       } else {
-        // Standard model — remove custom baseUrl if it was set
         delete config.baseUrl;
       }
 
@@ -378,7 +387,7 @@ export class TelegramChannel implements Channel {
         containerConfig: config,
       });
 
-      const via = isCustomModel ? ` (via LiteLLM)` : '';
+      const via = isLocalModel ? ' (local via OMLX)' : isCustomModel ? ' (via LiteLLM)' : '';
       ctx.reply(`Model switched to *${target}*${via}`, {
         parse_mode: 'Markdown',
       });
