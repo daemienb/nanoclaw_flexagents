@@ -16,6 +16,17 @@ import {
 } from '../shared.js';
 import { registerContainerRuntime, type QueryResult } from '../runtime-registry.js';
 
+/** Codex-specific tool guidance — injected into AGENTS.md during assembly */
+const CODEX_TOOL_GUIDANCE = `
+## File and Shell Best Practices
+
+When reading files, always use \`cat -n\` to show line numbers.
+When searching file contents, use \`grep -rn\` to include line numbers and context.
+For large files, read specific line ranges: \`sed -n '10,30p' file.txt\`
+When listing files, use \`find\` with specific patterns rather than \`ls -R\`.
+For file editing, prefer \`apply_patch\` over rewriting entire files.
+`;
+
 // --- Codex query ---
 
 async function runCodexQuery(
@@ -35,6 +46,9 @@ async function runCodexQuery(
       }
     }
   }
+  // Append Codex-specific tool guidance (not in AGENT.md because it's runtime-agnostic)
+  agentsParts.push(CODEX_TOOL_GUIDANCE);
+
   if (agentsParts.length > 0) {
     fs.writeFileSync(
       '/workspace/group/AGENTS.md',
@@ -84,9 +98,10 @@ NANOCLAW_IS_MAIN = "${containerInput.isMain ? '1' : '0'}"
     skipGitRepoCheck: true,
   };
 
-  const thread = sessionId
-    ? codex.resumeThread(sessionId, threadOptions)
-    : codex.startThread(threadOptions);
+  // Always start a fresh thread. Resuming threads across container restarts
+  // is unreliable ("no rollout found" errors). Conversation context is preserved
+  // via the conversations/ archive and memory/ directory instead.
+  const thread = codex.startThread(threadOptions);
 
   let closedDuringQuery = false;
   let newSessionId: string | undefined;
@@ -104,14 +119,49 @@ NANOCLAW_IS_MAIN = "${containerInput.isMain ? '1' : '0'}"
   setTimeout(pollIpc, 500);
 
   try {
-    const turn = await thread.run(prompt);
+    // Use streaming for progress visibility
+    const streamedTurn = await thread.runStreamed(prompt);
+    let resultText: string | null = null;
+    let usage: { input_tokens: number; output_tokens: number } | null = null;
 
-    newSessionId = thread.id || undefined;
-    log(`Codex thread: ${newSessionId || 'unknown'} (${sessionId ? 'resumed' : 'new'})`);
+    for await (const event of streamedTurn.events) {
+      // Capture thread ID from first event
+      if (event.type === 'thread.started') {
+        newSessionId = event.thread_id;
+        log(`Codex thread: ${newSessionId} (${sessionId ? 'resumed' : 'new'})`);
+      }
 
-    const resultText = turn.finalResponse || null;
-    if (turn.usage) {
-      log(`Codex usage: ${turn.usage.input_tokens} in, ${turn.usage.output_tokens} out`);
+      // Log tool activity for visibility
+      if (event.type === 'item.started') {
+        const item = event.item;
+        if (item.type === 'command_execution') {
+          log(`[tool] Running: ${item.command}`);
+        } else if (item.type === 'mcp_tool_call') {
+          log(`[tool] MCP: ${item.server}/${item.tool}`);
+        } else if (item.type === 'web_search') {
+          log(`[tool] Web search: ${item.query}`);
+        } else if (item.type === 'file_change') {
+          log(`[tool] File changes: ${item.changes.map((c: { path: string }) => c.path).join(', ')}`);
+        }
+      }
+
+      // Capture the final message
+      if (event.type === 'item.completed' && event.item.type === 'agent_message') {
+        resultText = event.item.text;
+      }
+
+      // Capture usage
+      if (event.type === 'turn.completed') {
+        usage = event.usage;
+      }
+    }
+
+    if (!newSessionId) {
+      newSessionId = thread.id || undefined;
+    }
+
+    if (usage) {
+      log(`Codex usage: ${usage.input_tokens} in, ${usage.output_tokens} out`);
     }
 
     // Archive conversation
