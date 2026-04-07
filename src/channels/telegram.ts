@@ -150,9 +150,12 @@ export class TelegramChannel implements Channel {
       const chatJid = `tg:${ctx.chat.id}`;
       const group = getRegisteredGroup(chatJid);
       const runtime = group?.containerConfig?.runtime || DEFAULT_RUNTIME;
-      ctx.reply(`Runtime: *${runtime}*\nNo SDK-specific auth configured.\nInstall an agent SDK with /add-agentSDK-codex or /add-agentSDK-claude.`, {
-        parse_mode: 'Markdown',
-      });
+      ctx.reply(
+        `Runtime: *${runtime}*\nNo SDK-specific auth configured.\nInstall an agent SDK with /add-agentSDK-codex or /add-agentSDK-claude.`,
+        {
+          parse_mode: 'Markdown',
+        },
+      );
     });
 
     // Command to view or switch model
