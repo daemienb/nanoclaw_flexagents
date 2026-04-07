@@ -33,38 +33,7 @@ Here is the comparison of capabilties between the two:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Claude Agent SDK vs Codex Agent SDK</title>
-<style>
-  :root {
-    --bg: #ffffff;
-    --bg-row: #f8f9fa;
-    --bg-header: #1e3a5f;
-    --text: #1a1a2e;
-    --text-muted: #555;
-    --border: #ddd;
-    --green: #1a7f37;
-    --yellow: #9a6700;
-    --blue: #0550ae;
-    --green-bg: #dafbe1;
-    --yellow-bg: #fff8c5;
-    --blue-bg: #ddf4ff;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0d1117;
-      --bg-row: #161b22;
-      --bg-header: #1e3a5f;
-      --text: #e6edf3;
-      --text-muted: #8b949e;
-      --border: #30363d;
-      --green: #3fb950;
-      --yellow: #d29922;
-      --blue: #58a6ff;
-      --green-bg: #12261e;
-      --yellow-bg: #272115;
-      --blue-bg: #121d2f;
-    }
-  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
