@@ -34,8 +34,6 @@ Here is the comparison of capabilties between the two:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
- 
-</style>
 </head>
 <body>
 <h1>Claude Agent SDK vs Codex Agent SDK</h1>
@@ -161,8 +159,8 @@ Here is the comparison of capabilties between the two:
 </tr>
 <tr>
   <td class="feature">Model selection</td>
-  <td><code>/model</code> with 4 Claude models. Cloud only.</td>
-  <td><code>/model</code> with 4 OpenAI models + local (OMLX) + custom (LiteLLM).</td>
+  <td><code>/model</code> with Claude models only.</td>
+  <td><code>/model</code> with OpenAI models + custom/local ww/LiteLLM support.</td>
   <td><span class="badge badge-codex">Codex better</span><br><small>more options</small></td>
 </tr>
 </tbody>
