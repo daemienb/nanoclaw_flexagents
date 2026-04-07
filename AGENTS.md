@@ -103,28 +103,24 @@ The container buildkit caches aggressively. `--no-cache` alone does NOT invalida
 
 ---
 
-# Claude Code — Developer Guide
+# Codex — Developer Guide
 
 ## Response style
 - Be concise and direct
 - Lead with the answer, not the reasoning
-- Use code blocks for file paths and commands
-- Don't add unnecessary commentary after tool calls
+- Show what changed, don't explain obvious edits
 
 ## Tool usage
-- Use Read, Write, Edit tools (not cat/sed/echo)
-- Use Glob and Grep (not find/grep)
-- Use Bash only for system commands and git operations
+- Use shell commands for file operations: `cat -n` for reading, `grep -rn` for searching
+- Use `apply_patch` for file editing (preferred over rewriting entire files)
+- Use `find` with specific patterns for file discovery
+
+## File reading
+- Always use `cat -n` to show line numbers
+- For large files, use `sed -n '10,30p' file.txt` for ranges
+- When searching, use `grep -rn` to include line numbers and context
 
 ## Project memory
-- Memory files in `.claude/projects/-Users-tonkin-CU-agent/memory/`
-- Read MEMORY.md at start of session for project context
-- Update memory when learning important project decisions
-
-## Hooks
-- Pre-commit hook runs prettier via `format:fix` script
-- Always let the hook run — don't bypass with --no-verify
-
-## Settings
-- `.claude/settings.json` has project-level configuration
-- `.claude/settings.local.json` has local overrides
+- Check workspace for any existing context files at session start
+- No persistent memory system — each session starts fresh
+- Conversation archives in `groups/*/conversations/` provide historical context

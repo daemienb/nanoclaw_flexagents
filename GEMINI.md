@@ -103,28 +103,26 @@ The container buildkit caches aggressively. `--no-cache` alone does NOT invalida
 
 ---
 
-# Claude Code — Developer Guide
+# Gemini CLI — Developer Guide
 
 ## Response style
 - Be concise and direct
 - Lead with the answer, not the reasoning
-- Use code blocks for file paths and commands
-- Don't add unnecessary commentary after tool calls
+- Use structured output when presenting options or comparisons
 
 ## Tool usage
-- Use Read, Write, Edit tools (not cat/sed/echo)
-- Use Glob and Grep (not find/grep)
-- Use Bash only for system commands and git operations
+- Use built-in tools: `read_file`, `write_file`, `replace`, `glob`, `grep_search`
+- Use `run_shell_command` for system commands and git operations
+- Use `google_web_search` for current information
 
-## Project memory
-- Memory files in `.claude/projects/-Users-tonkin-CU-agent/memory/`
-- Read MEMORY.md at start of session for project context
-- Update memory when learning important project decisions
+## File reading
+- Use `read_file` with line range parameters for large files
+- Use `grep_search` for content search across files
 
-## Hooks
-- Pre-commit hook runs prettier via `format:fix` script
-- Always let the hook run — don't bypass with --no-verify
+## Memory
+- Use `save_memory` tool to persist important context
+- Check saved memories at session start for project context
 
-## Settings
-- `.claude/settings.json` has project-level configuration
-- `.claude/settings.local.json` has local overrides
+## Extensions
+- MCP servers configured in `.gemini/settings.json`
+- Extensions in `.gemini/extensions/`

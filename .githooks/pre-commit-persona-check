@@ -1,0 +1,34 @@
+#!/bin/bash
+# Pre-commit check: remind to regenerate persona files if sources changed
+# Install: add to your pre-commit hook or .husky/pre-commit
+
+SOURCES="PROJECT.md .claude/dev-guide.md .codex/dev-guide.md .gemini/dev-guide.md"
+TARGETS="CLAUDE.md AGENTS.md GEMINI.md"
+
+source_changed=false
+for f in $SOURCES; do
+  if git diff --cached --name-only | grep -q "^${f}$"; then
+    source_changed=true
+    break
+  fi
+done
+
+if [ "$source_changed" = true ]; then
+  # Check if targets are also staged
+  targets_staged=true
+  for f in $TARGETS; do
+    if ! git diff --cached --name-only | grep -q "^${f}$"; then
+      targets_staged=false
+      break
+    fi
+  done
+
+  if [ "$targets_staged" = false ]; then
+    echo ""
+    echo "⚠️  Persona source files changed but output files not updated."
+    echo "   Run: bash scripts/regenerate-persona.sh"
+    echo "   Then: git add CLAUDE.md AGENTS.md GEMINI.md"
+    echo ""
+    # Warning only — don't block the commit
+  fi
+fi
