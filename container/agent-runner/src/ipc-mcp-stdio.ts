@@ -10,6 +10,7 @@ import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
 import { CronExpressionParser } from 'cron-parser';
+import { execSync } from 'child_process';
 
 const IPC_DIR = '/workspace/ipc';
 const MESSAGES_DIR = path.join(IPC_DIR, 'messages');
@@ -546,6 +547,30 @@ server.tool(
     return {
       content: [{ type: 'text' as const, text: `Available specialists: ${specialists.join(', ')}` }],
     };
+  },
+);
+
+server.tool(
+  'web_search',
+  'Search the web for current information, news, weather, prices, or anything requiring live data.',
+  {
+    query: z.string().describe('The search query'),
+  },
+  async (args) => {
+    try {
+      const encoded = encodeURIComponent(args.query);
+      const result = execSync(
+        `curl -s -L --max-time 10 -A "Mozilla/5.0" "https://lite.duckduckgo.com/lite/?q=${encoded}" | sed 's/<[^>]*>//g' | grep -v '^[[:space:]]*$' | head -60`,
+        { encoding: 'utf8', timeout: 15000 },
+      );
+      return {
+        content: [{ type: 'text' as const, text: result.trim() || 'No results found.' }],
+      };
+    } catch (err) {
+      return {
+        content: [{ type: 'text' as const, text: `Search failed: ${err instanceof Error ? err.message : String(err)}` }],
+      };
+    }
   },
 );
 
