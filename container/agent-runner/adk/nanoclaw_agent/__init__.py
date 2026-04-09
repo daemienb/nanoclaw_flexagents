@@ -126,12 +126,15 @@ full_instruction = f"{global_persona}\n\n---\n\n{persona}" if global_persona els
 
 specialists = parse_specialists(persona)
 
-root_agent = LlmAgent(
+agent_kwargs = dict(
     name="nanoclaw",
     model=MODEL,
     instruction=full_instruction,
     description="NanoClaw personal assistant",
     tools=build_tools(),
-    sub_agents=specialists if specialists else None,
 )
+if specialists:
+    agent_kwargs["sub_agents"] = specialists
+
+root_agent = LlmAgent(**agent_kwargs)
 
