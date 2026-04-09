@@ -57,6 +57,5 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ env.AGENT_IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          no-cache: true
 
