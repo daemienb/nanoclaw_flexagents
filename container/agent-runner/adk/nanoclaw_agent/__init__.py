@@ -14,7 +14,7 @@ from google.adk.agents import LlmAgent
 
 # --- Configuration from environment ---
 
-MODEL = os.environ.get("NANOCLAW_MODEL", "gemini-2.5-flash")
+MODEL = os.environ.get("NANOCLAW_MODEL", "google/gemini-3.1-flash-lite-preview")
 MCP_SERVER_PATH = os.environ.get("NANOCLAW_MCP_SERVER", "")
 CHAT_JID = os.environ.get("NANOCLAW_CHAT_JID", "")
 GROUP_FOLDER = os.environ.get("NANOCLAW_GROUP_FOLDER", "")
