@@ -60,7 +60,7 @@ async function startAdkServer(containerInput: ContainerInput, mcpServerPath: str
     'api_server',
     '--host', ADK_HOST,
     '--port', String(ADK_PORT),
-    '--session_service_uri', 'sqlite:///workspace/group/.adk-sessions.db',
+    '--session_service_uri', 'sqlite:///tmp/.adk-sessions.db',
     '--auto_create_session',
     adkAgentDir,
   ], {
