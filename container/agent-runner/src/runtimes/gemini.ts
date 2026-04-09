@@ -56,11 +56,16 @@ async function startAdkServer(containerInput: ContainerInput, mcpServerPath: str
   if (process.env.GOOGLE_API_KEY) env.GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
   if (containerInput.baseUrl) env.GOOGLE_GEMINI_BASE_URL = containerInput.baseUrl;
 
+  // Ensure writable directory for ADK session DB on the PVC
+  const adkDataDir = '/workspace/group/.adk';
+  fs.mkdirSync(adkDataDir, { recursive: true });
+  const sessionDbPath = path.join(adkDataDir, 'sessions.db');
+
   adkProcess = spawn('adk', [
     'api_server',
     '--host', ADK_HOST,
     '--port', String(ADK_PORT),
-    '--session_service_uri', 'sqlite:///tmp/.adk-sessions.db',
+    '--session_service_uri', `sqlite:///${sessionDbPath}`,
     '--auto_create_session',
     adkAgentDir,
   ], {
