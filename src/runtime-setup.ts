@@ -185,7 +185,11 @@ const geminiSetup: RuntimeSetup = {
   getCredentialEnv() {
     const env: Record<string, string> = {};
     const secrets = readEnvFile(['GEMINI_API_KEY', 'GOOGLE_API_KEY']);
-    const apiKey = secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY;
+    const apiKey =
+      secrets.GEMINI_API_KEY ||
+      secrets.GOOGLE_API_KEY ||
+      process.env.GEMINI_API_KEY ||
+      process.env.GOOGLE_API_KEY;
     if (apiKey) {
       env.GEMINI_API_KEY = apiKey;
       env.GOOGLE_API_KEY = apiKey;
