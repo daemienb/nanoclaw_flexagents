@@ -109,7 +109,9 @@ NANOCLAW_MODEL = "${containerInput.model || 'gpt-5.4-mini'}"
   const threadOptions = {
     model: containerInput.model || 'gpt-5.4-mini',
     workingDirectory: '/workspace/group',
-    sandboxMode: 'none' as const,
+    // Container is already isolated via DinD — disable bwrap sandbox
+    // which requires Linux namespace permissions not available in nested containers
+    sandboxMode: 'none' as 'workspace-write',
     approvalPolicy: 'never' as const,
     skipGitRepoCheck: true,
     additionalDirectories: extraDirs.length > 0 ? extraDirs : undefined,
