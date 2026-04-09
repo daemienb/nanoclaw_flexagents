@@ -109,7 +109,7 @@ NANOCLAW_MODEL = "${containerInput.model || 'gpt-5.4-mini'}"
   const threadOptions = {
     model: containerInput.model || 'gpt-5.4-mini',
     workingDirectory: '/workspace/group',
-    sandboxMode: 'workspace-write' as const,
+    sandboxMode: 'none' as const,
     approvalPolicy: 'never' as const,
     skipGitRepoCheck: true,
     additionalDirectories: extraDirs.length > 0 ? extraDirs : undefined,
