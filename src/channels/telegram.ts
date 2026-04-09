@@ -325,10 +325,12 @@ export class TelegramChannel implements Channel {
       if (args.length === 0) {
         const runtimeModels = AVAILABLE_MODELS[runtime] || [];
         // Local and custom models only work via Codex's baseUrl routing
-        const localModels = runtime === 'codex' ? AVAILABLE_MODELS['local'] || [] : [];
-        const customModels = runtime === 'codex' && LITELLM_URL
-          ? AVAILABLE_MODELS['custom'] || []
-          : [];
+        const localModels =
+          runtime === 'codex' ? AVAILABLE_MODELS['local'] || [] : [];
+        const customModels =
+          runtime === 'codex' && LITELLM_URL
+            ? AVAILABLE_MODELS['custom'] || []
+            : [];
         const baseUrl = group.containerConfig?.baseUrl;
 
         let reply = `Model: *${currentModel}*\nRuntime: ${runtime}`;
