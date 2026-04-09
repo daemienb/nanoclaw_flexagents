@@ -56,10 +56,21 @@ async function startAdkServer(containerInput: ContainerInput, mcpServerPath: str
   if (process.env.GOOGLE_API_KEY) env.GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
   if (containerInput.baseUrl) env.GOOGLE_GEMINI_BASE_URL = containerInput.baseUrl;
 
-  // Ensure writable directory for ADK session DB on the PVC
-  const adkDataDir = '/workspace/group/.adk';
-  fs.mkdirSync(adkDataDir, { recursive: true });
-  const sessionDbPath = path.join(adkDataDir, 'sessions.db');
+  log(`API key present: GEMINI_API_KEY=${!!process.env.GEMINI_API_KEY}, GOOGLE_API_KEY=${!!process.env.GOOGLE_API_KEY}`);
+
+  // Try PVC first, fall back to /tmp if not writable
+  let sessionDbPath = '/tmp/adk-sessions.db';
+  try {
+    const adkDataDir = '/workspace/group/.adk';
+    fs.mkdirSync(adkDataDir, { recursive: true });
+    // Test write access
+    fs.writeFileSync(path.join(adkDataDir, '.write-test'), '');
+    fs.unlinkSync(path.join(adkDataDir, '.write-test'));
+    sessionDbPath = path.join(adkDataDir, 'sessions.db');
+    log(`Using PVC session DB: ${sessionDbPath}`);
+  } catch (err) {
+    log(`PVC not writable (${err instanceof Error ? err.message : String(err)}), using /tmp/adk-sessions.db`);
+  }
 
   adkProcess = spawn('adk', [
     'api_server',
