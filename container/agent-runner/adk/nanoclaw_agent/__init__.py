@@ -11,7 +11,6 @@ import re
 from pathlib import Path
 
 from google.adk.agents import LlmAgent
-from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
 
 # --- Configuration from environment ---
 
@@ -43,7 +42,7 @@ def load_global_persona() -> str:
     return ""
 
 
-def parse_specialists(persona: str) -> list[LlmAgent]:
+def parse_specialists(persona: str) -> list:
     """Parse specialist definitions from ## Specialists section."""
     specialists = []
     section = re.search(
@@ -52,7 +51,6 @@ def parse_specialists(persona: str) -> list[LlmAgent]:
     if not section:
         return specialists
 
-    # Find all ### Heading blocks
     headings = list(
         re.finditer(r"###\s+(\w+)\s*\n([\s\S]*?)(?=\n###\s|\Z)", section.group(1))
     )
@@ -60,7 +58,7 @@ def parse_specialists(persona: str) -> list[LlmAgent]:
         name = match.group(1).lower()
         instruction = match.group(2).strip()
         if not instruction or name in ("how", "when"):
-            continue  # Skip guidance sections
+            continue
         specialists.append(
             LlmAgent(
                 name=name,
@@ -77,22 +75,46 @@ def parse_specialists(persona: str) -> list[LlmAgent]:
 def build_tools() -> list:
     """Configure MCP tools for the NanoClaw IPC server."""
     tools = []
-    if MCP_SERVER_PATH:
+    if not MCP_SERVER_PATH:
+        return tools
+
+    mcp_env = {
+        "NANOCLAW_CHAT_JID": CHAT_JID,
+        "NANOCLAW_GROUP_FOLDER": GROUP_FOLDER,
+        "NANOCLAW_IS_MAIN": IS_MAIN,
+        "NANOCLAW_RUNTIME": "gemini",
+        "NANOCLAW_MODEL": MODEL,
+    }
+
+    try:
+        # Try newer ADK API first (google-adk >= 1.0)
+        from google.adk.tools.mcp_tool import MCPToolset
+        from mcp import StdioServerParameters
         tools.append(
-            McpToolset(
-                connection_params=StdioConnectionParams(
+            MCPToolset(
+                connection_params=StdioServerParameters(
                     command="node",
                     args=[MCP_SERVER_PATH],
-                    env={
-                        "NANOCLAW_CHAT_JID": CHAT_JID,
-                        "NANOCLAW_GROUP_FOLDER": GROUP_FOLDER,
-                        "NANOCLAW_IS_MAIN": IS_MAIN,
-                        "NANOCLAW_RUNTIME": "gemini",
-                        "NANOCLAW_MODEL": MODEL,
-                    },
-                ),
+                    env=mcp_env,
+                )
             )
         )
+    except (ImportError, TypeError):
+        try:
+            # Try older ADK API (McpToolset + StdioConnectionParams)
+            from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
+            tools.append(
+                McpToolset(
+                    connection_params=StdioConnectionParams(
+                        command="node",
+                        args=[MCP_SERVER_PATH],
+                        env=mcp_env,
+                    )
+                )
+            )
+        except Exception as e:
+            print(f"[nanoclaw_agent] Warning: Could not configure MCP tools: {e}")
+
     return tools
 
 
@@ -112,3 +134,4 @@ root_agent = LlmAgent(
     tools=build_tools(),
     sub_agents=specialists if specialists else None,
 )
+
