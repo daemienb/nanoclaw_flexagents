@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 from google.adk.agents import LlmAgent
+from google.adk.tools import google_search
 
 # --- Configuration from environment ---
 
@@ -131,7 +132,7 @@ agent_kwargs = dict(
     model=MODEL,
     instruction=full_instruction,
     description="NanoClaw personal assistant",
-    tools=build_tools(),
+    tools=build_tools() + [google_search],
 )
 if specialists:
     agent_kwargs["sub_agents"] = specialists
